@@ -9,10 +9,24 @@ import {
   Stats,
   SortBy,
   Pagination,
+  Configure,
+  connectHitInsights,
 } from 'react-instantsearch-dom';
 import React from 'react';
 import 'instantsearch.css/themes/algolia.css';
 import { useHistory, RouteChildrenProps } from 'react-router-dom';
+
+let userToken = '';
+
+//@ts-ignore
+window.aa('getUserToken', null, (err, algoliaUserToken) => {
+  if (err) {
+    console.error(err);
+    return;
+  }
+
+  userToken = algoliaUserToken;
+});
 
 const DEBOUNCE_TIME = 400;
 
@@ -33,7 +47,7 @@ const sortByItems = [
   },
 ];
 
-const Hit = ({ hit }: any) => {
+const Hit = ({ hit, insights }: any) => {
   return (
     <div>
       <h3>
@@ -44,9 +58,21 @@ const Hit = ({ hit }: any) => {
       </p>
       <p>Price: {hit.price}</p>
       <img src={hit.image} alt={hit.description} />
+      <button
+        onClick={() =>
+          insights('clickedObjectIDsAfterSearch', {
+            eventName: 'Product Clicked',
+          })
+        }
+      >
+        See details
+      </button>
     </div>
   );
 };
+
+//@ts-ignore
+const HitWithInsights = connectHitInsights(window.aa)(Hit);
 
 const MainContent = () => (
   <div>
@@ -65,7 +91,6 @@ interface ISearchStateObject {
 
 const createURL = (state: ISearchStateObject) => `?${qs.stringify(state)}`;
 const searchStateToUrl = (searchState: ISearchStateObject): string => {
-  console.log(searchState);
   return searchState ? `${createURL(searchState)}` : '';
 };
 
@@ -99,8 +124,9 @@ const App = ({ location }: RouteChildrenProps) => {
     >
       <SearchBox />
       <MainContent />
-      <Hits hitComponent={Hit} />
+      <Hits hitComponent={HitWithInsights} />
       <Pagination showLast />
+      <Configure clickAnalytics />
     </InstantSearch>
   );
 };
