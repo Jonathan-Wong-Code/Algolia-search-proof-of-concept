@@ -1,5 +1,5 @@
 import algoliasearch from 'algoliasearch/lite';
-import qs from 'qs';
+import qs, { ParsedQs } from 'qs';
 import { useState } from 'react';
 import {
   InstantSearch,
@@ -12,7 +12,7 @@ import {
 } from 'react-instantsearch-dom';
 import React from 'react';
 import 'instantsearch.css/themes/algolia.css';
-import { useHistory } from 'react-router-dom';
+import { useHistory, RouteChildrenProps } from 'react-router-dom';
 
 const DEBOUNCE_TIME = 400;
 
@@ -58,38 +58,33 @@ const MainContent = () => (
   </div>
 );
 
-//@ts-ignore
-const createURL = (state) => `?${qs.stringify(state)}`;
-//@ts-ignore
-const searchStateToUrl = (searchState) => {
+interface ISearchStateObject {
+  query: string;
+  page: number;
+}
+
+const createURL = (state: ISearchStateObject) => `?${qs.stringify(state)}`;
+const searchStateToUrl = (searchState: ISearchStateObject): string => {
+  console.log(searchState);
   return searchState ? `${createURL(searchState)}` : '';
 };
 
-//@ts-ignore
+const urlToSearchState = ({ search }: { search: string }) =>
+  qs.parse(search.slice(1));
 
-const urlToSearchState = ({ search }) => qs.parse(search.slice(1));
-//@ts-ignore
-
-const App = ({ location }) => {
+const App = ({ location }: RouteChildrenProps) => {
   const history = useHistory();
-  const [searchState, setSearchState] = useState(urlToSearchState(location));
-  const [debouncedSetState, setDebouncedSetState] = useState(null);
-  //@ts-ignore
+  const [searchState, setSearchState] = useState<ParsedQs | ISearchStateObject>(
+    urlToSearchState(location)
+  );
 
-  const onSearchStateChange = (updatedSearchState) => {
-    //@ts-ignore
-    clearTimeout(debouncedSetState);
-    //@ts-ignore
-    setDebouncedSetState(
-      //@ts-ignore
-      setTimeout(() => {
-        //@ts-ignore
-        history.push({
-          pathname: location.pathname,
-          search: searchStateToUrl(updatedSearchState),
-        });
-      }, DEBOUNCE_TIME)
-    );
+  const onSearchStateChange = (updatedSearchState: ISearchStateObject) => {
+    setTimeout(() => {
+      history.push({
+        pathname: location.pathname,
+        search: searchStateToUrl(updatedSearchState),
+      });
+    }, DEBOUNCE_TIME);
 
     setSearchState(updatedSearchState);
   };
