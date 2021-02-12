@@ -1,18 +1,35 @@
 import algoliasearch from 'algoliasearch/lite';
-import qs from 'qs';
-import { useState } from 'react';
+import qs, { ParsedQs } from 'qs';
 import {
   InstantSearch,
-  SearchBox,
+  // SearchBox,
   Hits,
   Highlight,
   Stats,
   SortBy,
   Pagination,
+  Configure,
+  connectHitInsights,
+  connectSearchBox,
 } from 'react-instantsearch-dom';
-import React from 'react';
+import { useState } from 'react';
 import 'instantsearch.css/themes/algolia.css';
-import { useHistory } from 'react-router-dom';
+import { useHistory, RouteChildrenProps } from 'react-router-dom';
+import AutoComplete from './AutoComplete';
+
+const VirtualSearchBox = connectSearchBox(() => null);
+
+let userToken = '';
+
+//@ts-ignore
+window.aa('getUserToken', null, (err, algoliaUserToken) => {
+  if (err) {
+    console.error(err);
+    return;
+  }
+
+  userToken = algoliaUserToken;
+});
 
 const DEBOUNCE_TIME = 400;
 
@@ -33,7 +50,8 @@ const sortByItems = [
   },
 ];
 
-const Hit = ({ hit }: any) => {
+const Hit = ({ hit, insights }: any) => {
+  console.log(hit);
   return (
     <div>
       <h3>
@@ -44,9 +62,21 @@ const Hit = ({ hit }: any) => {
       </p>
       <p>Price: {hit.price}</p>
       <img src={hit.image} alt={hit.description} />
+      <button
+        onClick={() =>
+          insights('clickedObjectIDsAfterSearch', {
+            eventName: 'Product Clicked',
+          })
+        }
+      >
+        See details
+      </button>
     </div>
   );
 };
+
+//@ts-ignore
+const HitWithInsights = connectHitInsights(window.aa)(Hit);
 
 const MainContent = () => (
   <div>
@@ -58,55 +88,78 @@ const MainContent = () => (
   </div>
 );
 
-//@ts-ignore
-const createURL = (state) => `?${qs.stringify(state)}`;
-//@ts-ignore
-const searchStateToUrl = (searchState) => {
+interface ISearchStateObject {
+  query: string;
+  page: number;
+}
+
+const createURL = (state: ISearchStateObject) => `?${qs.stringify(state)}`;
+const searchStateToUrl = (searchState: ISearchStateObject): string => {
   return searchState ? `${createURL(searchState)}` : '';
 };
 
-//@ts-ignore
+const urlToSearchState = ({ search }: { search: string }) =>
+  qs.parse(search.slice(1));
 
-const urlToSearchState = ({ search }) => qs.parse(search.slice(1));
-//@ts-ignore
+const App = ({ location }: RouteChildrenProps) => {
+  const [query, setQuery] = useState('');
 
-const App = ({ location }) => {
+  const onValueSelected = (value: string) => {
+    setQuery(value);
+  };
+  const [searchState, setSearchState] = useState<ParsedQs | ISearchStateObject>(
+    urlToSearchState(location)
+  );
+
+  const onValueClear = () => {
+    setQuery('');
+  };
+
   const history = useHistory();
-  const [searchState, setSearchState] = useState(urlToSearchState(location));
-  const [debouncedSetState, setDebouncedSetState] = useState(null);
-  //@ts-ignore
 
-  const onSearchStateChange = (updatedSearchState) => {
-    //@ts-ignore
-    clearTimeout(debouncedSetState);
-    //@ts-ignore
-    setDebouncedSetState(
-      //@ts-ignore
-      setTimeout(() => {
-        //@ts-ignore
-        history.push({
-          pathname: location.pathname,
-          search: searchStateToUrl(updatedSearchState),
-        });
-      }, DEBOUNCE_TIME)
-    );
+  const onSearchStateChange = (updatedSearchState: ISearchStateObject) => {
+    setTimeout(() => {
+      history.push({
+        pathname: location.pathname,
+        search: searchStateToUrl(updatedSearchState),
+      });
+    }, DEBOUNCE_TIME);
 
     setSearchState(updatedSearchState);
   };
 
+  console.log(searchState);
+
   return (
-    <InstantSearch
-      searchClient={searchClient}
-      indexName='demo_ecommerce'
-      searchState={searchState}
-      onSearchStateChange={onSearchStateChange}
-      createURL={createURL}
-    >
-      <SearchBox />
-      <MainContent />
-      <Hits hitComponent={Hit} />
-      <Pagination showLast />
-    </InstantSearch>
+    <>
+      <InstantSearch
+        searchClient={searchClient}
+        indexName='demo_ecommerce'
+        searchState={searchState}
+        onSearchStateChange={onSearchStateChange}
+        createURL={createURL}
+      >
+        <AutoComplete
+          onValueSelected={onValueSelected}
+          onValueClear={onValueClear}
+        />
+        {/* <SearchBox /> */}
+      </InstantSearch>
+
+      <InstantSearch
+        indexName='demo_ecommerce'
+        searchClient={searchClient}
+        searchState={searchState}
+        onSearchStateChange={onSearchStateChange}
+        createURL={createURL}
+      >
+        <VirtualSearchBox defaultRefinement={query} />
+        <MainContent />
+        <Hits hitComponent={HitWithInsights} />
+        <Pagination showLast />
+        <Configure clickAnalytics hitsPerPage={10} />
+      </InstantSearch>
+    </>
   );
 };
 
