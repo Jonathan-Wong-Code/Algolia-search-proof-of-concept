@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
-import { Highlight, connectAutoComplete } from 'react-instantsearch-dom';
-
+import React, { useState, useEffect } from 'react';
+import { connectAutoComplete } from 'react-instantsearch-dom';
 import {
   Combobox,
   ComboboxInput,
@@ -10,28 +9,73 @@ import {
 } from '@reach/combobox';
 import '@reach/combobox/styles.css';
 
-const AutoComplete = ({ currentRefinement, refine, hits }) => {
+//@ts-ignore
+const AutoComplete = ({
+  //@ts-ignore
+  currentRefinement,
+  //@ts-ignore
+  refine,
+  //@ts-ignore
+  hits,
+  //@ts-ignore
+  onValueSelected,
+  //@ts-ignore
+  onValueClear,
+}) => {
   const [value, setValue] = useState(currentRefinement);
+  const [showSelections, setShowSelections] = useState(false);
 
-  const onChange = (e) => {
+  useEffect(() => {
+    refine(value);
+  }, [value, refine]);
+
+  const onChange = (e: React.ChangeEvent) => {
+    // Ties the value to all of searchboxes stuff with refine like state URL
+
+    //@ts-ignore
     setValue(e.target.value);
+    //@ts-ignore
+    onValueSelected(e.target.value);
+    setShowSelections(true);
   };
 
-  const handleSelect = () => {
-    refine(value);
+  const handleSelect = (value: string) => {
+    setValue(value);
+    onValueSelected(value);
+    setShowSelections(false);
+
+    // send up value
+  };
+
+  //@ts-ignore
+  const onSubmit = (e) => {
+    e.preventDefault();
+    console.log('hello?');
+    onValueSelected(value);
+    setShowSelections(false);
   };
 
   return (
-    <Combobox onSelect={handleSelect}>
-      <ComboboxInput id='search' value={value} onChange={onChange} />
-      <ComboboxPopover>
-        <ComboboxList>
-          {hits.map(({ name }) => (
-            <ComboboxOption key={name} value={name} />
-          ))}
-        </ComboboxList>
-      </ComboboxPopover>
-    </Combobox>
+    <form onSubmit={onSubmit}>
+      <Combobox onSelect={handleSelect}>
+        <ComboboxInput
+          id='search'
+          value={value}
+          onChange={onChange}
+          autoComplete='off'
+        />
+        <ComboboxPopover>
+          <ComboboxList>
+            {showSelections &&
+              hits.map(
+                ({ name, objectID }: { name: string; objectID: string }) => (
+                  <ComboboxOption key={objectID} value={name} />
+                )
+              )}
+          </ComboboxList>
+        </ComboboxPopover>
+      </Combobox>
+    </form>
   );
 };
 

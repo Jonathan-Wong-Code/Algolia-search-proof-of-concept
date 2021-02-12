@@ -1,9 +1,8 @@
 import algoliasearch from 'algoliasearch/lite';
 import qs, { ParsedQs } from 'qs';
-import { useState } from 'react';
 import {
   InstantSearch,
-  SearchBox,
+  // SearchBox,
   Hits,
   Highlight,
   Stats,
@@ -11,10 +10,14 @@ import {
   Pagination,
   Configure,
   connectHitInsights,
+  connectSearchBox,
 } from 'react-instantsearch-dom';
-import React from 'react';
+import { useState } from 'react';
 import 'instantsearch.css/themes/algolia.css';
 import { useHistory, RouteChildrenProps } from 'react-router-dom';
+import AutoComplete from './AutoComplete';
+
+const VirtualSearchBox = connectSearchBox(() => null);
 
 let userToken = '';
 
@@ -48,6 +51,7 @@ const sortByItems = [
 ];
 
 const Hit = ({ hit, insights }: any) => {
+  console.log(hit);
   return (
     <div>
       <h3>
@@ -98,10 +102,20 @@ const urlToSearchState = ({ search }: { search: string }) =>
   qs.parse(search.slice(1));
 
 const App = ({ location }: RouteChildrenProps) => {
-  const history = useHistory();
+  const [query, setQuery] = useState('');
+
+  const onValueSelected = (value: string) => {
+    setQuery(value);
+  };
   const [searchState, setSearchState] = useState<ParsedQs | ISearchStateObject>(
     urlToSearchState(location)
   );
+
+  const onValueClear = () => {
+    setQuery('');
+  };
+
+  const history = useHistory();
 
   const onSearchStateChange = (updatedSearchState: ISearchStateObject) => {
     setTimeout(() => {
@@ -114,20 +128,38 @@ const App = ({ location }: RouteChildrenProps) => {
     setSearchState(updatedSearchState);
   };
 
+  console.log(searchState);
+
   return (
-    <InstantSearch
-      searchClient={searchClient}
-      indexName='demo_ecommerce'
-      searchState={searchState}
-      onSearchStateChange={onSearchStateChange}
-      createURL={createURL}
-    >
-      <SearchBox />
-      <MainContent />
-      <Hits hitComponent={HitWithInsights} />
-      <Pagination showLast />
-      <Configure clickAnalytics />
-    </InstantSearch>
+    <>
+      <InstantSearch
+        searchClient={searchClient}
+        indexName='demo_ecommerce'
+        searchState={searchState}
+        onSearchStateChange={onSearchStateChange}
+        createURL={createURL}
+      >
+        <AutoComplete
+          onValueSelected={onValueSelected}
+          onValueClear={onValueClear}
+        />
+        {/* <SearchBox /> */}
+      </InstantSearch>
+
+      <InstantSearch
+        indexName='demo_ecommerce'
+        searchClient={searchClient}
+        searchState={searchState}
+        onSearchStateChange={onSearchStateChange}
+        createURL={createURL}
+      >
+        <VirtualSearchBox defaultRefinement={query} />
+        <MainContent />
+        <Hits hitComponent={HitWithInsights} />
+        <Pagination showLast />
+        <Configure clickAnalytics hitsPerPage={10} />
+      </InstantSearch>
+    </>
   );
 };
 
